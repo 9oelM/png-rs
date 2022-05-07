@@ -1,0 +1,1 @@
+cargo test 2>&1 | tee test.log

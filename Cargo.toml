@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "core",
+    "cli",
+    "wasm-node",
+    "wasi-cli",
+    "wasi-any",
+]
