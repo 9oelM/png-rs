@@ -137,7 +137,7 @@ impl<'a> PngDecoder<'a> {
         }
     }
 
-    fn create_error(&mut self, code: errors::PngDecodeErrorCode) -> errors::PngDecodeError {
+    fn create_recoverable_error(&mut self, code: errors::PngDecodeErrorCode) -> errors::PngDecodeError {
         let err = errors::PngDecodeError::new(
             code,
             self.byte_reader.get_current_byte_pos(),
@@ -157,14 +157,14 @@ impl<'a> PngDecoder<'a> {
         {
             chunk_helpers::PNG_HEADER => Ok(()),
             invalid_header => {
-                Err(self.create_error(errors::PngDecodeErrorCode::_1(invalid_header)))
+                Err(self.create_recoverable_error(errors::PngDecodeErrorCode::_1(invalid_header)))
             }
         };
     }
 
-    fn finalize_at_iend_chunk(&mut self) {
+    fn finalize_at_iend_chunk(&mut self) -> Result<(), PngDecodeErrorCode> {
         if !self.has_ihdr {
-            self.create_error(PngDecodeErrorCode::_15);
+            self.create_recoverable_error(PngDecodeErrorCode::_15);
         }
         let color_type = self
             .color_type
@@ -175,10 +175,12 @@ impl<'a> PngDecoder<'a> {
 
         // See [decode_plte_chunk]
         if !self.has_plte && color_type == chunk_helpers::ColorType::IndexedColor {
-            self.create_error(PngDecodeErrorCode::_16(
+            return Err(PngDecodeErrorCode::_16(
                 color_type,
             ));
         }
+
+        Ok(())
     }
 
     /// validates ihdr chunk and returns bit depth, color type, compression method, filter method, interlace method
@@ -186,45 +188,35 @@ impl<'a> PngDecoder<'a> {
     fn validate_ihdr_chunk(
         &mut self,
         chunk: &Vec<u8>,
-    ) -> (
+    ) -> Result<(
         u8,
         chunk_helpers::ColorType,
         chunk_helpers::CompressionMethod,
         chunk_helpers::FilterMethod,
         chunk_helpers::InterlaceMethod,
-    ) {
+    ), errors::PngDecodeErrorCode> {
         let ihdr_chunk_data_length = chunk.len();
         if ihdr_chunk_data_length != 13 {
-            self.create_error(errors::PngDecodeErrorCode::_3(ihdr_chunk_data_length));
+            self.create_recoverable_error(errors::PngDecodeErrorCode::_3(ihdr_chunk_data_length));
         }
 
-        let color_type: chunk_helpers::ColorType = match chunk[9].try_into() {
-            Ok(ct) => ct,
-            Err(_) => {
-                self.create_error(PngDecodeErrorCode::_18(
-                    chunk[9],
-                ));
-                ColorType::Greyscale
-            }
-        };
+        let color_type: chunk_helpers::ColorType = chunk[9].try_into()?;
         
         let bit_depth = chunk[8];
         let supported_bit_depths =
             chunk_helpers::get_supported_color_type_to_bit_depths(color_type);
 
         if !supported_bit_depths.contains(&bit_depth) {
-            self.create_error(
-                errors::PngDecodeErrorCode::_4(
-                    bit_depth,
-                    supported_bit_depths,
-                ),
-            );
+            return Err(errors::PngDecodeErrorCode::_4(
+                bit_depth,
+                supported_bit_depths,
+            ));
         }
 
         let compression_method: chunk_helpers::CompressionMethod = match chunk[10].try_into() {
             Ok(compression_method) => compression_method,
             Err(_) => {
-                self.create_error(errors::PngDecodeErrorCode::_10(chunk[10]));
+                self.create_recoverable_error(errors::PngDecodeErrorCode::_10(chunk[10]));
 
                 chunk_helpers::CompressionMethod::Deflate
             }
@@ -233,27 +225,21 @@ impl<'a> PngDecoder<'a> {
         let filter_method = match chunk[11].try_into() {
             Ok(filter_method) => filter_method,
             Err(_) => {
-                self.create_error(errors::PngDecodeErrorCode::_11(chunk[11]));
+                self.create_recoverable_error(errors::PngDecodeErrorCode::_11(chunk[11]));
 
                 chunk_helpers::FilterMethod::Adaptive
             }
         };
 
-        let interlace_method: InterlaceMethod = match chunk[12].try_into() {
-            Ok(interlace_method) => interlace_method,
-            Err(_) => {
-                self.create_error(errors::PngDecodeErrorCode::_12(chunk[12]));
-                self.multi_errors_manager.force_end(errors::ForceExitReason::Unrecoverable)
-            }
-        };
+        let interlace_method: InterlaceMethod = chunk[12].try_into()?;
 
-        return (
+        return Ok((
             bit_depth,
             color_type,
             compression_method,
             filter_method,
             interlace_method,
-        );
+        ));
     }
 
     /// The IHDR chunk must appear FIRST. It contains:
@@ -271,9 +257,9 @@ impl<'a> PngDecoder<'a> {
     /// Filter method:      1 byte
     ///
     /// Interlace method:   1 byte
-    fn decode_ihdr_chunk(&mut self, chunk: &Vec<u8>) {
+    fn decode_ihdr_chunk(&mut self, chunk: &Vec<u8>) -> Result<(), PngDecodeErrorCode> {
         let (bit_depth, color_type, compression_method, filter_method, interlace_method) =
-            self.validate_ihdr_chunk(chunk);
+            self.validate_ihdr_chunk(chunk)?;
 
         self.has_ihdr = true;
         let width = self.byte_reader.read_next_u32_num(&chunk[0..4].to_vec());
@@ -294,29 +280,24 @@ impl<'a> PngDecoder<'a> {
 
         self.bytes_per_line = bytes_per_line;
         self.bytes_per_pixel = bytes_per_pixel;
-        self.pixel_type = match PixelType::new(color_type, bit_depth) {
-            Ok(pt) => Some(pt),
-            Err(err_code) => {
-                self.create_error(err_code);
-                self.multi_errors_manager
-                    .force_end(errors::ForceExitReason::Unrecoverable)
-            }
-        };
+        self.pixel_type = Some(PixelType::new(color_type, bit_depth)?);
+
+        Ok(())
     }
 
     fn validate_plte_chunk(&mut self, chunk: &Vec<u8>) {
         let chunk_length = chunk.len();
         if chunk_length % 3 != 0 {
-            self.create_error(errors::PngDecodeErrorCode::_9(chunk_length));
+            self.create_recoverable_error(errors::PngDecodeErrorCode::_9(chunk_length));
         }
         if self.has_idat {
-            self.create_error(errors::PngDecodeErrorCode::_2);
+            self.create_recoverable_error(errors::PngDecodeErrorCode::_2);
         }
         if self.has_plte {
-            self.create_error(errors::PngDecodeErrorCode::_5);
+            self.create_recoverable_error(errors::PngDecodeErrorCode::_5);
         }
         if !self.has_ihdr {
-            self.create_error(errors::PngDecodeErrorCode::_2);
+            self.create_recoverable_error(errors::PngDecodeErrorCode::_2);
         }
 
         let color_type = self
@@ -326,7 +307,7 @@ impl<'a> PngDecoder<'a> {
         match color_type {
             // we're not using the returned value
             chunk_helpers::ColorType::Greyscale | chunk_helpers::ColorType::GreyscaleAlpha => {
-                drop(self.create_error(errors::PngDecodeErrorCode::_6(color_type)))
+                drop(self.create_recoverable_error(errors::PngDecodeErrorCode::_6(color_type)))
             }
             _ => (),
         };
@@ -344,11 +325,13 @@ impl<'a> PngDecoder<'a> {
     ///  it must not appear for color types 0 and 4.
     ///  If this chunk does appear, it must precede the first IDAT chunk.
     ///  There must not be more than one PLTE chunk.
-    fn decode_plte_chunk(&mut self, chunk: &Vec<u8>) {
+    fn decode_plte_chunk(&mut self, chunk: &Vec<u8>) -> Result<(), errors::PngDecodeErrorCode> {
         self.validate_plte_chunk(&chunk);
 
         self.has_plte = true;
         self.palette = Some(chunk.to_vec());
+
+        Ok(())
     }
 
     /// Parses the IDAT chunk.
@@ -365,11 +348,11 @@ impl<'a> PngDecoder<'a> {
     /// A PNG file in which each IDAT chunk contains only one data byte is valid,
     /// though remarkably wasteful of space.
     /// (For that matter, zero-length IDAT chunks are valid, though even more wasteful.)
-    fn decode_idat_chunk(&mut self, chunk: &Vec<u8>) {
+    fn decode_idat_chunk(&mut self, chunk: &Vec<u8>) -> Result<(), errors::PngDecodeErrorCode> {
         // avoid accessing empty IDAT chunk
         if chunk.len() == 0 {
             self.has_idat = true;
-            return;
+            return Ok(());
         }
         if self.zlib_compression_method.is_none() && chunk.len() > 0 {
             self.zlib_compression_method = Some(chunk[0]);
@@ -380,56 +363,50 @@ impl<'a> PngDecoder<'a> {
             self.additional_flag_after_compression_method = Some(chunk[1]);
         }
 
-        match self.zlib_decompress_stream.decompress(&chunk) {
-            Ok(_) => (),
-            Err(reason) => {
-                self.create_error(PngDecodeErrorCode::_14(
-                    reason,
-                ));
-            }
-        };
+        self.zlib_decompress_stream.decompress(&chunk)?;
         if !self.has_idat {
             self.has_idat = true
         }
+
+        Ok(())
     }
 
-    fn validate_trns_chunk(&mut self, chunk: &Vec<u8>) -> (ColorType, PixelType) {
+    fn validate_trns_chunk(&mut self, chunk: &Vec<u8>) -> Result<(ColorType, PixelType), errors::PngDecodeErrorCode> {
         let color_type = match self.color_type {
             Some(ct) => ct,
             _ => {
-                self.create_error(errors::PngDecodeErrorCode::_19);
-                self.multi_errors_manager
-                    .force_end(errors::ForceExitReason::Unrecoverable);
+                return Err(errors::PngDecodeErrorCode::_19)
             }
         };
         let expected_chunk_length = chunk_helpers::colortype_to_alpha_byte_length(color_type);
         if chunk.len() != expected_chunk_length as usize && expected_chunk_length != 0 {
-            self.create_error(errors::PngDecodeErrorCode::_21(color_type, chunk.len()));
+            self.create_recoverable_error(errors::PngDecodeErrorCode::_21(color_type, chunk.len()));
         }
 
         let pixel_type = match self.pixel_type {
             Some(pt) => pt,
             _ => {
-                self.create_error(errors::PngDecodeErrorCode::_23);
-                self.multi_errors_manager
-                    .force_end(errors::ForceExitReason::Unrecoverable);
+                return Err(errors::PngDecodeErrorCode::_23);
             }
         };
 
-        return (color_type, pixel_type);
+        return Ok((color_type, pixel_type));
     }
 
-    fn decode_trns_chunk(&mut self, chunk: &Vec<u8>) {
-        let (color_type, pixel_type) = self.validate_trns_chunk(&chunk);
+    fn decode_trns_chunk(&mut self, chunk: &Vec<u8>) -> Result<(), errors::PngDecodeErrorCode> {
+        let (color_type, pixel_type) = self.validate_trns_chunk(&chunk)?;
 
         match color_type {
             ColorType::Greyscale | ColorType::Truecolor | ColorType::IndexedColor => {
                 self.transparency_chunk = TransparencyChunk::new(chunk.to_vec(), pixel_type);
             }
             _ => {
-                self.create_error(errors::PngDecodeErrorCode::_20);
+                // recoverable error. so don't return error here
+                self.create_recoverable_error(errors::PngDecodeErrorCode::_20);
             }
         }
+
+        Ok(())
     }
 
     /// Validates CRC. Adds an error when there is a mismatch between
@@ -438,7 +415,7 @@ impl<'a> PngDecoder<'a> {
         let expected_chunk_crc = crc32fast::hash(chunk_type_and_chunk_data);
 
         if actual_chunk_crc != expected_chunk_crc {
-            self.create_error(
+            self.create_recoverable_error(
                 errors::PngDecodeErrorCode::_7(
                     expected_chunk_crc,
                     actual_chunk_crc,
@@ -447,7 +424,7 @@ impl<'a> PngDecoder<'a> {
         }
     }
 
-    fn decode_chunks(&mut self) {
+    fn decode_chunks(&mut self) -> Result<(), PngDecodeErrorCode> {
         let _ = self.read_header();
 
         loop {
@@ -456,7 +433,7 @@ impl<'a> PngDecoder<'a> {
             let chunk_data = self.byte_reader.read_next_n_bytes(chunk_data_length.into());
 
             if !self.has_ihdr && chunk_type != chunk_types::ChunkTypes::IHDR {
-                self.create_error(errors::PngDecodeErrorCode::_13(chunk_type.clone()));
+                self.create_recoverable_error(errors::PngDecodeErrorCode::_13(chunk_type.clone()));
             }
 
             let mut needs_break = false;
@@ -466,11 +443,11 @@ impl<'a> PngDecoder<'a> {
                 chunk_types::ChunkTypes::PLTE => self.decode_plte_chunk(&chunk_data),
                 chunk_types::ChunkTypes::tRNS => self.decode_trns_chunk(&chunk_data),
                 chunk_types::ChunkTypes::IEND => {
-                    self.finalize_at_iend_chunk();
                     needs_break = true;
+                    self.finalize_at_iend_chunk()
                 }
-                _ => (),
-            }
+                _ => Ok(())
+            }?;
             let chunk_crc = self.byte_reader.read_next_4bytes_num();
             if self.decoder_options.validate_crc {
                 // Consume them instead of referencing, cloning, or copying
@@ -488,11 +465,11 @@ impl<'a> PngDecoder<'a> {
                 break;
             }
         }
+
+        Ok(())
     }
 
-    fn unfilter_interlaced_image(&mut self) -> Vec<ReducedImage> {
-        let mut unknown_filter_type: Option<u8> = None;
-
+    fn unfilter_interlaced_image(&mut self) -> Result<Vec<ReducedImage>, errors::PngDecodeErrorCode> {
         let height = self.height.expect("Height is None");
         let decompressed_data = self.zlib_decompress_stream.get_out_buffer();
 
@@ -538,35 +515,21 @@ impl<'a> PngDecoder<'a> {
             let next_bytes_to_unfilter =
                 current_scanline_length_without_filter_bytes + reduced_image.pixel_height as usize;
 
-            match unfilter_processor.unfilter(
+            unfilter_processor.unfilter(
                 &decompressed_data
                     [decompressed_data_cursor..decompressed_data_cursor + next_bytes_to_unfilter],
                 &mut self.unfiltered_output[unfiltered_output_cursor
                     ..unfiltered_output_cursor + current_scanline_length_without_filter_bytes],
-            ) {
-                Ok(_) => (),
-                Err(filter_type) => {
-                    unknown_filter_type = Some(filter_type);
-                    break;
-                }
-            };
+            )?;
             decompressed_data_cursor = decompressed_data_cursor + next_bytes_to_unfilter;
             unfiltered_output_cursor =
                 unfiltered_output_cursor + current_scanline_length_without_filter_bytes;
         }
-        match unknown_filter_type {
-            None => (),
-            Some(filter_type) => {
-                self.create_error(PngDecodeErrorCode::_17(
-                    filter_type,
-                ));
-            }
-        }
 
-        return reduced_images.to_vec();
+        return Ok(reduced_images.to_vec());
     }
 
-    fn unfilter_non_interlaced_image(&mut self) -> Vec<ReducedImage> {
+    fn unfilter_non_interlaced_image(&mut self) -> Result<Vec<ReducedImage>, errors::PngDecodeErrorCode> {
         let height = self.height.expect("Height is None");
         let decompressed_data = self.zlib_decompress_stream.get_out_buffer();
 
@@ -581,24 +544,17 @@ impl<'a> PngDecoder<'a> {
             maximum_possible_byte_width,
             Default::default,
         );
-        match unfilter_processor.unfilter(
+        unfilter_processor.unfilter(
             &decompressed_data,
             &mut self.unfiltered_output,
-        ) {
-            Ok(_) => (),
-            Err(unknown_filter_type) => {
-                self.create_error(PngDecodeErrorCode::_17(
-                    unknown_filter_type,
-                ));
-            }
-        };
+        )?;
 
-        return vec![ReducedImage {
+        return Ok(vec![ReducedImage {
             pixel_width: self.width.expect("Width is None"),
             pixel_height: height,
             bytes_per_line: self.bytes_per_line,
             bytes_per_pixel: self.bytes_per_pixel,
-        }];
+        }]);
     }
     
     /// outputs data in rgba (4 bytes) for each pixel
@@ -660,13 +616,13 @@ impl<'a> PngDecoder<'a> {
 
     /// returns RGBA vec
     pub fn run(&mut self) -> Result<Vec<u8>, errors::PngDecodeErrorCode> {
-        self.decode_chunks();
+        self.decode_chunks()?;
 
         // length is 1 or 7 based on interlace == 0 or 1
         let reduced_images = match self.interlace_method.expect("Interlace method is None") {
             chunk_helpers::InterlaceMethod::None => self.unfilter_non_interlaced_image(),
             chunk_helpers::InterlaceMethod::Adam7 => self.unfilter_interlaced_image(),
-        };
+        }?;
         let rgba_vec = self.to_rgba_vec(reduced_images);
         self.multi_errors_manager.end(errors::ExitReason::JobDone);
         return rgba_vec;

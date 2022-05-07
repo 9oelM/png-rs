@@ -9,6 +9,8 @@ use miniz_oxide::inflate::{
     TINFLStatus,
 };
 
+use crate::errors::{PngDecodeError, PngDecodeErrorCode};
+
 /// Continuously receive image data, decompress it, and append the result to the output buffer
 pub struct ZlibDecompressStream {
     // Vector filled with zeros, twice the size of default buffer size
@@ -50,7 +52,7 @@ impl ZlibDecompressStream {
 
     /// Decompresses image bytes as they come in.
     /// * `raw_image_bytes` - this is the vector of u8 image data from an IDAT chunk. Favorably should be possible to receive more than a single IDAT chunk or a part of an IDAT chunk because the size of an IDAT chunk varies greatly. But for now we are just sticking to a single IDAT chunk.
-    pub fn decompress(&mut self, raw_image_bytes: &Vec<u8>) -> Result<(), TINFLStatus> {
+    pub fn decompress(&mut self, raw_image_bytes: &Vec<u8>) -> Result<(), PngDecodeErrorCode> {
         let mut in_buffer_byte_pos: usize = 0;
         while in_buffer_byte_pos < raw_image_bytes.len() {
             self.resize_out_buffer_if_needed();
@@ -69,7 +71,7 @@ impl ZlibDecompressStream {
             match current_TINFL_status {
                 TINFLStatus::BadParam
                 | TINFLStatus::Failed
-                | TINFLStatus::FailedCannotMakeProgress => return Err(current_TINFL_status),
+                | TINFLStatus::FailedCannotMakeProgress => return Err(PngDecodeErrorCode::_14(current_TINFL_status)),
                 _ => (),
             }
         }

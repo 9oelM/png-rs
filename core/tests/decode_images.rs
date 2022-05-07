@@ -217,7 +217,7 @@ mod tests {
             },
         );
 
-        let decoder_result = decoder.run();
+        let decoder_result = decoder.run().unwrap();
 
         let image_rs_output = image::open(png_path).unwrap();
         let image_rs_rgba8 = image_rs_output.to_rgba8();
@@ -246,39 +246,38 @@ mod tests {
 
     // recoverable errors
     // signature byte 1 MSBit reset to zero
-    #[test_case("../test/png/official/xs1n0g01.png";"Decoding ../test/png/official/xs1n0g01.png) should not panic")]
+    #[test_case("../test/png/official/xs1n0g01.png";"Decoding ../test/png/official/xs1n0g01.png) should report error")]
     // signature byte 2 is a 'Q'
-    #[test_case("../test/png/official/xs2n0g01.png";"Decoding ../test/png/official/xs2n0g01.png) should not panic")]
+    #[test_case("../test/png/official/xs2n0g01.png";"Decoding ../test/png/official/xs2n0g01.png) should report error")]
     // signature byte 4 lowercase
-    #[test_case("../test/png/official/xs4n0g01.png";"Decoding ../test/png/official/xs4n0g01.png) should not panic")]
+    #[test_case("../test/png/official/xs4n0g01.png";"Decoding ../test/png/official/xs4n0g01.png) should report error")]
     // 7th byte a space instead of control-Z
-    #[test_case("../test/png/official/xs7n0g01.png";"Decoding ../test/png/official/xs7n0g01.png) should not panic")]
+    #[test_case("../test/png/official/xs7n0g01.png";"Decoding ../test/png/official/xs7n0g01.png) should report error")]
     // incorrect IHDR checksum
-    #[test_case("../test/png/official/xhdn0g08.png";"Decoding ../test/png/official/xhdn0g08.png) should not panic")]
+    #[test_case("../test/png/official/xhdn0g08.png";"Decoding ../test/png/official/xhdn0g08.png) should report error")]
     // incorrect IDAT checksum
-    #[test_case("../test/png/official/xcsn0g01.png";"Decoding ../test/png/official/xcsn0g01.png) should not panic")]
+    #[test_case("../test/png/official/xcsn0g01.png";"Decoding ../test/png/official/xcsn0g01.png) should report error")]
     // added cr bytes
-    #[test_case("../test/png/official/xcrn0g04.png";"Decoding ../test/png/official/xcrn0g04.png) should not panic")]
+    #[test_case("../test/png/official/xcrn0g04.png";"Decoding ../test/png/official/xcrn0g04.png) should report error")]
     fn decode_recoverable_corrupt_image(path: &str) {
         decode_corrupt_image(path)
     }
 
     // unrecoverable errors
     // color type 1
-    #[test_case("../test/png/official/xc1n0g08.png";"Decoding ../test/png/official/xc1n0g08.png) should panic")]
+    #[test_case("../test/png/official/xc1n0g08.png";"Decoding ../test/png/official/xc1n0g08.png) should report error")]
     // color type 9
-    #[test_case("../test/png/official/xc9n2c08.png";"Decoding ../test/png/official/xc9n2c08.png) should panic")]
+    #[test_case("../test/png/official/xc9n2c08.png";"Decoding ../test/png/official/xc9n2c08.png) should report error")]
     // bit depth 0
-    #[test_case("../test/png/official/xd0n2c08.png";"Decoding ../test/png/official/xd0n2c08.png) should panic")]
+    #[test_case("../test/png/official/xd0n2c08.png";"Decoding ../test/png/official/xd0n2c08.png) should report error")]
     // bit depth 3
-    #[test_case("../test/png/official/xd3n2c08.png";"Decoding ../test/png/official/xd3n2c08.png) should panic")]
+    #[test_case("../test/png/official/xd3n2c08.png";"Decoding ../test/png/official/xd3n2c08.png) should report error")]
     // bit depth 99
-    #[test_case("../test/png/official/xd9n2c08.png";"Decoding ../test/png/official/xd9n2c08.png) should panic")]
+    #[test_case("../test/png/official/xd9n2c08.png";"Decoding ../test/png/official/xd9n2c08.png) should report error")]
     // missing IDAT/IHDR chunk
-    #[test_case("../test/png/official/xdtn0g01.png";"Decoding ../test/png/official/xdtn0g01.png) should panic")]
+    #[test_case("../test/png/official/xdtn0g01.png";"Decoding ../test/png/official/xdtn0g01.png) should report error")]
     // added lf bytes (incorrect chunk length)
-    #[test_case("../test/png/official/xlfn0g04.png";"Decoding ../test/png/official/xlfn0g04.png) should panic")]
-    #[should_panic]
+    #[test_case("../test/png/official/xlfn0g04.png";"Decoding ../test/png/official/xlfn0g04.png) should report error")]
     fn decode_unrecoverable_corrupt_image(path: &str) {
         decode_corrupt_image(path)
     }

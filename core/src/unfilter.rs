@@ -14,6 +14,8 @@
 //!
 //! For example, a 'left' filter would transform a sequence of `2, 3, 4, 5, 6, 7, 8, 9` to `2, 1, 1, 1, 1, 1, 1, 1`. As described by the libpng docs, it is a 'precompression step' because it transforms the data so that it can be compressed more efficiently.
 
+use crate::errors;
+
 /// Variable names in unfilter processor are as elaborate as possible to avoid confusion. Instead, lines have become a bit longer.
 /// However short variable names often cause confusion especially in detailed bytewise ops, so let's keep it this way
 pub struct UnfilterProcessor {
@@ -251,7 +253,7 @@ impl UnfilterProcessor {
 
     /// unfilters scanlines with possibly varying filter types.
     /// * `in_buffer` - the bytes decompressed by zlib
-    pub fn unfilter(&mut self, in_buffer: &[u8], out_buffer: &mut [u8]) -> Result<(), u8> {
+    pub fn unfilter(&mut self, in_buffer: &[u8], out_buffer: &mut [u8]) -> Result<(), errors::PngDecodeErrorCode> {
         let mut filter_byte_index: usize = 0;
 
         for line_number in 0..self.height.try_into().expect("Height doesn't fit in usize") {
@@ -291,7 +293,9 @@ impl UnfilterProcessor {
                     in_buffer,
                 ),
                 _ => {
-                    return Err(filter_type);
+                    return Err(errors::PngDecodeErrorCode::_17(
+                        filter_type,
+                    ))
                 }
             }
             filter_byte_index += self.bytes_per_line + 1;

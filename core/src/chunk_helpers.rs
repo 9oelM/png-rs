@@ -1,3 +1,5 @@
+use crate::errors;
+
 pub const PNG_HEADER: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
 
 /// Color type is a single-byte integer that describes the interpretation of the image data.
@@ -14,8 +16,7 @@ pub enum ColorType {
 }
 
 impl TryFrom<u8> for ColorType {
-    // todo error
-    type Error = ();
+    type Error = errors::PngDecodeErrorCode;
 
     fn try_from(v: u8) -> Result<Self, Self::Error> {
         match v {
@@ -24,7 +25,9 @@ impl TryFrom<u8> for ColorType {
             x if x == ColorType::IndexedColor as u8 => Ok(ColorType::IndexedColor),
             x if x == ColorType::GreyscaleAlpha as u8 => Ok(ColorType::GreyscaleAlpha),
             x if x == ColorType::TruecolorAlpha as u8 => Ok(ColorType::TruecolorAlpha),
-            _ => Err(()),
+            _ => Err(errors::PngDecodeErrorCode::_18(
+                v,
+            )),
         }
     }
 }
@@ -132,14 +135,12 @@ pub enum InterlaceMethod {
 }
 
 impl TryFrom<u8> for InterlaceMethod {
-    // todo error
-    type Error = ();
-
-    fn try_from(v: u8) -> Result<Self, Self::Error> {
+    type Error = errors::PngDecodeErrorCode;
+    fn try_from(v: u8) -> Result<Self, errors::PngDecodeErrorCode> {
         match v {
             x if x == InterlaceMethod::None as u8 => Ok(InterlaceMethod::None),
             x if x == InterlaceMethod::Adam7 as u8 => Ok(InterlaceMethod::Adam7),
-            _ => Err(()),
+            _ => Err(errors::PngDecodeErrorCode::_12(v)),
         }
     }
 }

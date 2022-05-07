@@ -17,5 +17,5 @@ pub fn decode_raw_bytes(
         &mut byte_reader,
         decoder_options,
     );
-    return decoder.run().as_slice().into();
+    return decoder.run().unwrap().as_slice().into();
 }

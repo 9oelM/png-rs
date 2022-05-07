@@ -770,6 +770,17 @@ if self.should_validate_crc {
 
 This way, the program will report if there is a mistmatch between the stored CRC value and computed one.
 
+## Error handling
+- We can divide errors into two categories: recoverable and unrecoverable ones.
+- If the program encounters a recoverable error, it would store information about it and continue. If the program succeeeds, the output will contain decoded png vec and errors encountered.
+- If the program encounters an unrecoverable error, it would return error only.
+
+Above logic would make the return type of the `run` function clear:
+
+```rs
+
+```
+
 # References I used
 - ['The PNG book' on libpng](http://www.libpng.org/pub/png/book/)
 - ['The PNG book' on O'Reily](https://www.oreilly.com/library/view/png-the-definitive/9781565925427)
