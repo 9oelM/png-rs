@@ -400,7 +400,7 @@ impl<'a> PngDecoder<'a> {
 
         match color_type {
             ColorType::Greyscale | ColorType::Truecolor | ColorType::IndexedColor => {
-                self.transparency_chunk = TransparencyChunk::new(chunk.to_vec(), pixel_type);
+                self.transparency_chunk = TransparencyChunk::new(chunk.to_vec(), pixel_type)?;
             }
             _ => {
                 // recoverable error. so don't return error here

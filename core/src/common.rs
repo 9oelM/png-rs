@@ -1,3 +1,5 @@
+use crate::errors;
+
 pub fn calc_bytes_per_pixel_and_line(
     channel: u8,
     bit_depth: u8,
@@ -12,7 +14,18 @@ pub fn calc_bytes_per_pixel_and_line(
     );
 }
 
-#[inline(always)]
-pub fn u16_to_u8(val: u16) -> u8 {
-    (val >> 8) as u8
+const U8_MAX_OUT_SAMPLE: f32 = 255.0;
+// 2**16 - 1
+const U16_MAX_IN_SAMPLE: f32 = 65535.0;
+
+pub(crate) fn normalize_u16_to_u8(
+    num: u16
+) -> Result<u8, errors::PngDecodeErrorCode> {
+    let normalized_u8 = ((num as f32 * U8_MAX_OUT_SAMPLE) / U16_MAX_IN_SAMPLE + 0.5).floor();
+    if normalized_u8 > U8_MAX_OUT_SAMPLE {
+        return Err(errors::PngDecodeErrorCode::_24("u16".to_string(), "u8".to_string()))
+    }
+
+    // now safe
+    return Ok(normalized_u8 as u8)
 }
