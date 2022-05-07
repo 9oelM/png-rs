@@ -38,7 +38,6 @@
 mod tests {
     use core::byte_reader;
     use image::EncodableLayout;
-    use std::fs::File;
     use test_case::test_case;
 
     #[test_case("../test/png/official/s39i3p04.png";"Decoding ../test/png/official/s39i3p04.png) should work")]

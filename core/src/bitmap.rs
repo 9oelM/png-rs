@@ -77,21 +77,25 @@ const U8_MAX_OUT_SAMPLE: f32 = 255.0;
 // 2**16 - 1
 const U16_MAX_IN_SAMPLE: f32 = 65535.0;
 
-#[inline]
 fn normalize_u16_to_u8(
     num: u16
-) -> u8 {
-    ((num as f32 * U8_MAX_OUT_SAMPLE) / U16_MAX_IN_SAMPLE + 0.5).floor() as u8
+) -> Result<u8, errors::PngDecodeErrorCode> {
+    let normalized_u8 = ((num as f32 * U8_MAX_OUT_SAMPLE) / U16_MAX_IN_SAMPLE + 0.5).floor();
+    if normalized_u8 > U8_MAX_OUT_SAMPLE {
+        return Err(errors::PngDecodeErrorCode::_24("u16".to_string(), "u8".to_string()))
+    }
+
+    // now safe
+    return Ok(normalized_u8 as u8)
 }
 
-///
 pub fn to_rgba_pixel_bytes(
     pixel_type: PixelType,
     transparency_chunk: Option<&TransparencyChunk>,
     palette_chunk: Option<&Vec<u8>>,
     pixel_start_byte_position: usize,
     unfiltered_data: &[u8],
-) -> (u8, u8, u8, u8) {
+) -> Result<(u8, u8, u8, u8), errors::PngDecodeErrorCode> {
     let pixel = match pixel_type {
         PixelType::Grayscale1 => {
             let byte = unfiltered_data[pixel_start_byte_position / 8];
@@ -168,7 +172,7 @@ pub fn to_rgba_pixel_bytes(
         PixelType::Grayscale16 => {
             let offset = pixel_start_byte_position * 2;
             let pixel_val =
-            normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset], unfiltered_data[offset + 1]])); 
+                normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset], unfiltered_data[offset + 1]]))?; 
 
             let alpha = match transparency_chunk {
                 Some(TransparencyChunk::Grayscale(transparent_val))
@@ -202,9 +206,9 @@ pub fn to_rgba_pixel_bytes(
         }
         PixelType::Rgb16 => {
             let offset = pixel_start_byte_position * 6;
-            let r = normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset], unfiltered_data[offset + 1]]));
-            let g = normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset + 2], unfiltered_data[offset + 3]]));
-            let b = normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset + 4], unfiltered_data[offset + 5]]));
+            let r = normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset], unfiltered_data[offset + 1]]))?;
+            let g = normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset + 2], unfiltered_data[offset + 3]]))?;
+            let b = normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset + 4], unfiltered_data[offset + 5]]))?;
 
             let alpha = match transparency_chunk {
                 Some(TransparencyChunk::Rgb(t_r, t_g, t_b))
@@ -304,9 +308,9 @@ pub fn to_rgba_pixel_bytes(
         PixelType::GrayscaleAlpha16 => {
             let offset = pixel_start_byte_position * 4;
             let grayscale_val =
-            normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset], unfiltered_data[offset + 1]]));
+            normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset], unfiltered_data[offset + 1]]))?;
             let alpha =
-            normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset + 2], unfiltered_data[offset + 3]]));
+            normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset + 2], unfiltered_data[offset + 3]]))?;
 
             (
                 grayscale_val,
@@ -326,14 +330,14 @@ pub fn to_rgba_pixel_bytes(
         }
         PixelType::RgbAlpha16 => {
             let offset = pixel_start_byte_position * 8;
-            let r = normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset], unfiltered_data[offset + 1]]));
-            let g = normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset + 2], unfiltered_data[offset + 3]]));
-            let b = normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset + 4], unfiltered_data[offset + 5]]));
-            let a = normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset + 6], unfiltered_data[offset + 7]]));
+            let r = normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset], unfiltered_data[offset + 1]]))?;
+            let g = normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset + 2], unfiltered_data[offset + 3]]))?;
+            let b = normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset + 4], unfiltered_data[offset + 5]]))?;
+            let a = normalize_u16_to_u8(u16::from_be_bytes([unfiltered_data[offset + 6], unfiltered_data[offset + 7]]))?;
 
             (r, g, b, a)
         }
     };
 
-    return pixel;
+    return Ok(pixel);
 }

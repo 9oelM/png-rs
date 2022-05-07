@@ -59,6 +59,8 @@ pub enum PngDecodeErrorCode {
     _22(ColorType, u8),
     /// Pixel type has not been defined yet. Probably tRNS chunk has been encountered before IHDR chunk.
     _23,
+    /// Number type cast error `(from, to)`
+    _24(String, String),
 }
 
 /// For specific errors that are not in line with the PNG specification and can't really be generalized, meaning that they probably have unique error messages.
@@ -119,6 +121,8 @@ fn recoverable_map(code: PngDecodeErrorCode) -> bool {
         PngDecodeErrorCode::_22(ColorType, u8) => false,
         // Pixel type has not been defined yet. Probably tRNS chunk has been encountered before IHDR chunk.
         PngDecodeErrorCode::_23 => false,
+        // Number type cast error
+        PngDecodeErrorCode::_24(..) => false,
     }
 }
 
@@ -160,6 +164,7 @@ impl fmt::Display for PngDecodeError {
       PngDecodeErrorCode::_21(color_type, actual_chunk_length) => write!(fmt, "tRNS chunk length must be {} for color type of {:?}, but the actual chunk length is found to be {}. To fix this error, set a correct chunk length for tRNS chunk.", chunk_helpers::colortype_to_alpha_byte_length(*color_type), *color_type, actual_chunk_length),
       PngDecodeErrorCode::_22(color_type, bit_depth) => write!(fmt, "Combination of color type of {:?} and bit depth of {} is not permitted.", color_type, bit_depth),
       PngDecodeErrorCode::_23 => write!(fmt, "Pixel type has not been defined yet. Probably tRNS chunk has been encountered before IHDR chunk."),
+      PngDecodeErrorCode::_24(from, to) => write!(fmt, "Failed to convert {} to {}", from, to),
     }
     }
 }

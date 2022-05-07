@@ -393,8 +393,7 @@ impl<'a> PngDecoder<'a> {
         }
     }
 
-    #[allow(non_snake_case)]
-    fn validate_tRNS_chunk(&mut self, chunk: &Vec<u8>) -> (ColorType, PixelType) {
+    fn validate_trns_chunk(&mut self, chunk: &Vec<u8>) -> (ColorType, PixelType) {
         let color_type = match self.color_type {
             Some(ct) => ct,
             _ => {
@@ -420,9 +419,8 @@ impl<'a> PngDecoder<'a> {
         return (color_type, pixel_type);
     }
 
-    #[allow(non_snake_case)]
-    fn decode_tRNS_chunk(&mut self, chunk: &Vec<u8>) {
-        let (color_type, pixel_type) = self.validate_tRNS_chunk(&chunk);
+    fn decode_trns_chunk(&mut self, chunk: &Vec<u8>) {
+        let (color_type, pixel_type) = self.validate_trns_chunk(&chunk);
 
         match color_type {
             ColorType::Greyscale | ColorType::Truecolor | ColorType::IndexedColor => {
@@ -466,17 +464,12 @@ impl<'a> PngDecoder<'a> {
                 chunk_types::ChunkTypes::IHDR => self.decode_ihdr_chunk(&chunk_data),
                 chunk_types::ChunkTypes::IDAT => self.decode_idat_chunk(&chunk_data),
                 chunk_types::ChunkTypes::PLTE => self.decode_plte_chunk(&chunk_data),
-                chunk_types::ChunkTypes::tRNS => self.decode_tRNS_chunk(&chunk_data),
+                chunk_types::ChunkTypes::tRNS => self.decode_trns_chunk(&chunk_data),
                 chunk_types::ChunkTypes::IEND => {
                     self.finalize_at_iend_chunk();
                     needs_break = true;
                 }
-                unknown_type => {
-                    // println!(
-                    //     "warning: unknown type {}",
-                    //     unknown_type
-                    // );
-                }
+                _ => (),
             }
             let chunk_crc = self.byte_reader.read_next_4bytes_num();
             if self.decoder_options.validate_crc {
@@ -609,7 +602,7 @@ impl<'a> PngDecoder<'a> {
     }
     
     /// outputs data in rgba (4 bytes) for each pixel
-    fn to_rgba_vec(&self, reduced_images: Vec<ReducedImage>) -> Vec<u8> {
+    fn to_rgba_vec(&self, reduced_images: Vec<ReducedImage>) -> Result<Vec<u8>, PngDecodeErrorCode> {
         let width = self.width.expect("Width is None");
         let height = self.height.expect("Height is None");
         let rgba_data_length = ((width * height) * 4) as usize;
@@ -647,7 +640,7 @@ impl<'a> PngDecoder<'a> {
                         self.palette.as_ref(),
                         col_index as usize,
                         current_scanline,
-                    );
+                    )?;
                     if rgba_data_start_index > rgba_data_length {
                         break;
                     }
@@ -662,11 +655,11 @@ impl<'a> PngDecoder<'a> {
                 (reduced_image.pixel_height as usize * reduced_image.bytes_per_line) as usize
         }
 
-        return rgba_data;
+        return Ok(rgba_data);
     }
 
     /// returns RGBA vec
-    pub fn run(&mut self) -> Vec<u8> {
+    pub fn run(&mut self) -> Result<Vec<u8>, errors::PngDecodeErrorCode> {
         self.decode_chunks();
 
         // length is 1 or 7 based on interlace == 0 or 1
@@ -676,9 +669,6 @@ impl<'a> PngDecoder<'a> {
         };
         let rgba_vec = self.to_rgba_vec(reduced_images);
         self.multi_errors_manager.end(errors::ExitReason::JobDone);
-
-        // println!("{:?}", (self.fil))
-        // println!("{:?}", rgba_vec);
         return rgba_vec;
     }
 }
