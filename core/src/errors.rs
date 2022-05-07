@@ -66,7 +66,6 @@ pub enum PngDecodeErrorCode {
 /// For specific errors that are not in line with the PNG specification and can't really be generalized, meaning that they probably have unique error messages.
 #[derive(Debug, Clone)]
 pub struct PngDecodeError {
-    pub is_recoverable: bool,
     pub code: PngDecodeErrorCode,
     /// The location from the image from which the error probably happened.
     /// Might not be exact, since errors are raised independently of byte reading.
@@ -74,62 +73,9 @@ pub struct PngDecodeError {
     approx_byte_location: usize,
 }
 
-fn recoverable_map(code: PngDecodeErrorCode) -> bool {
-    match code {
-        // invalid png header
-        PngDecodeErrorCode::_1(_) => true,
-        // Invalid chunk order: PLTE chunk appeared before IDAT chunk
-        PngDecodeErrorCode::_2 => false,
-        // Invalid data length of IHDR chunk
-        PngDecodeErrorCode::_3(_) => false,
-        // Unsupported bit depth
-        PngDecodeErrorCode::_4(..) => false,
-        // Duplicate PLTE chunk. False for safety
-        PngDecodeErrorCode::_5 => false,
-        // PLTE is forbidden but has appeared
-        PngDecodeErrorCode::_6(_) => true,
-        // CRC checksum mismatch
-        PngDecodeErrorCode::_7(..) => true,
-        // Invalid chunk order: IHDR chunk appears after PLTE.
-        PngDecodeErrorCode::_8 => false,
-        // Invalid PLTE chunk data length
-        PngDecodeErrorCode::_9(_) => false,
-        // Unsupported compression method. There is only one compression method anyway
-        PngDecodeErrorCode::_10(_) => true,
-        // Unsupported filter method. There is only one filter method anyway
-        PngDecodeErrorCode::_11(_) => true,
-        // Unsupported interlace method. There is only one interlace method anyway
-        PngDecodeErrorCode::_12(_) => true,
-        // First chunk is not IHDR
-        PngDecodeErrorCode::_13(_) => true,
-        // Error while decompressing with zlib
-        PngDecodeErrorCode::_14(_) => false,
-        // IHDR chunk does not appear before IEND chunk
-        PngDecodeErrorCode::_15 => false,
-        // PLTE chunk must appear for certain colortype, but has not appeared until the end (IEND)
-        PngDecodeErrorCode::_16(..) => false,
-        PngDecodeErrorCode::_17(..) => false,
-        // unsupported color type
-        PngDecodeErrorCode::_18(..) => false,
-        // tRNS chunk appears before IHDR chunk
-        PngDecodeErrorCode::_19 => false,
-        // tRNS chunk must not appear for color types 4 and 6 but has appeared
-        PngDecodeErrorCode::_20 => true,
-        // tRNS chunk data length is incorrect for a given color type
-        PngDecodeErrorCode::_21(..) => true,
-        // Combination of such bit depth and color type is not permitted
-        PngDecodeErrorCode::_22(ColorType, u8) => false,
-        // Pixel type has not been defined yet. Probably tRNS chunk has been encountered before IHDR chunk.
-        PngDecodeErrorCode::_23 => false,
-        // Number type cast error
-        PngDecodeErrorCode::_24(..) => false,
-    }
-}
-
 impl PngDecodeError {
     pub fn new(code: PngDecodeErrorCode, approx_byte_location: usize) -> Self {
         Self {
-            is_recoverable: recoverable_map(code.clone()),
             code,
             approx_byte_location,
         }
@@ -169,14 +115,9 @@ impl fmt::Display for PngDecodeError {
     }
 }
 
-pub enum ForceExitReason {
+pub enum ExitReason {
     /// The user wants to fail fast when the first error is encountered.
     FailFast,
-    /// The program has encountered an unrecoverable error.
-    Unrecoverable,
-}
-
-pub enum ExitReason {
     /// The program has successfully finished the job through a normal course.
     JobDone,
 }
@@ -222,28 +163,17 @@ impl MultiErrorsManager {
     pub fn handle_err(&mut self, err: PngDecodeError) -> PngDecodeError {
         self.errors.push(err.clone());
         self.print_all_errors();
-        if !err.is_recoverable {
-            self.force_end(ForceExitReason::Unrecoverable);
-        }
         if self.fail_fast {
-            self.force_end(ForceExitReason::FailFast);
+            self.end(ExitReason::FailFast);
         }
         return err;
     }
 
-    /// the program has panicked
-    pub fn force_end(&self, end_reason: ForceExitReason) -> ! {
-        match end_reason {
-            ForceExitReason::FailFast => panic!(
-                "Ending program because fail_fast is set to true and first error is encountered."
-            ),
-            ForceExitReason::Unrecoverable => {
-                panic!("Ending program because the program has encountered an unrecoverable error.")
-            }
-        }
-    }
     pub fn end(&self, end_reason: ExitReason) {
         match end_reason {
+            ExitReason::FailFast => panic!(
+                "Ending program because fail_fast is set to true and first error is encountered."
+            ),
             ExitReason::JobDone => {
                 if self.errors.len() > 0 {
                     println!("✔ Validated and decoded png with some recoverable errors.")

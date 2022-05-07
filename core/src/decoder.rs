@@ -164,7 +164,7 @@ impl<'a> PngDecoder<'a> {
 
     fn finalize_at_iend_chunk(&mut self) -> Result<(), PngDecodeErrorCode> {
         if !self.has_ihdr {
-            self.create_recoverable_error(PngDecodeErrorCode::_15);
+            return Err(PngDecodeErrorCode::_15);
         }
         let color_type = self
             .color_type
@@ -197,7 +197,7 @@ impl<'a> PngDecoder<'a> {
     ), errors::PngDecodeErrorCode> {
         let ihdr_chunk_data_length = chunk.len();
         if ihdr_chunk_data_length != 13 {
-            self.create_recoverable_error(errors::PngDecodeErrorCode::_3(ihdr_chunk_data_length));
+            return Err(errors::PngDecodeErrorCode::_3(ihdr_chunk_data_length));
         }
 
         let color_type: chunk_helpers::ColorType = chunk[9].try_into()?;
@@ -285,19 +285,19 @@ impl<'a> PngDecoder<'a> {
         Ok(())
     }
 
-    fn validate_plte_chunk(&mut self, chunk: &Vec<u8>) {
+    fn validate_plte_chunk(&mut self, chunk: &Vec<u8>) -> Result<(), PngDecodeErrorCode> {
         let chunk_length = chunk.len();
         if chunk_length % 3 != 0 {
-            self.create_recoverable_error(errors::PngDecodeErrorCode::_9(chunk_length));
+            return Err(errors::PngDecodeErrorCode::_9(chunk_length));
         }
         if self.has_idat {
-            self.create_recoverable_error(errors::PngDecodeErrorCode::_2);
+            return Err(errors::PngDecodeErrorCode::_2);
         }
         if self.has_plte {
-            self.create_recoverable_error(errors::PngDecodeErrorCode::_5);
+            return Err(errors::PngDecodeErrorCode::_5);
         }
         if !self.has_ihdr {
-            self.create_recoverable_error(errors::PngDecodeErrorCode::_2);
+            return Err(errors::PngDecodeErrorCode::_2);
         }
 
         let color_type = self
@@ -311,6 +311,8 @@ impl<'a> PngDecoder<'a> {
             }
             _ => (),
         };
+
+        Ok(())
     }
 
     ///     The PLTE chunk contains from 1 to 256 palette entries, each a three-byte series of the form:
@@ -326,7 +328,7 @@ impl<'a> PngDecoder<'a> {
     ///  If this chunk does appear, it must precede the first IDAT chunk.
     ///  There must not be more than one PLTE chunk.
     fn decode_plte_chunk(&mut self, chunk: &Vec<u8>) -> Result<(), errors::PngDecodeErrorCode> {
-        self.validate_plte_chunk(&chunk);
+        self.validate_plte_chunk(&chunk)?;
 
         self.has_plte = true;
         self.palette = Some(chunk.to_vec());
