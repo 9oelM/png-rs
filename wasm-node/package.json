@@ -2,21 +2,24 @@
   "name": "wasm-node",
   "version": "0.1.0",
   "description": "",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
     "wasm-opt": "wasm-opt",
     "ts-node": "node --loader ts-node/esm ./index.ts",
-    "test": "./build-nodejs.sh && jest --silent=false 2>&1 | tee test.log"
+    "test": "./build-nodejs.sh && jest --silent=false 2>&1 | tee test.log",
+    "bench": "ts-node ./bench/bench.ts"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@babel/preset-env": "^7.17.10",
     "@babel/preset-typescript": "^7.16.7",
+    "@types/benchmark": "^2.1.1",
     "@types/jest": "^27.5.0",
     "@types/pngjs": "^6.0.1",
     "await-to-js": "^3.0.0",
+    "benchmark": "^2.1.4",
     "jest": "^28.0.3",
     "pngjs": "^6.0.0",
     "ts-node": "^10.7.0",
