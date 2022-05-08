@@ -9,13 +9,17 @@ _Disclaimer: BTW this is my first project using Rust, so the code must be very a
 ## Table of Contents
 
 1. [`png-rs`](#`png-rs`)
+    1. [Table of Contents](#table-of-contents)
+    1. [Benchmarks](#benchmarks)
     1. [How (and why) it works](#how-(and-why)-it-works)
     1. [Developing](#developing)
-1. [API](#api)
-1. [A brief walk through how png-rs works](#a-brief-walk-through-how-png-rs-works)
-    1. [What is PNG?](#what-is-png?)
-    1. [Chunks](#chunks)
-        1. [Critical and ancillary chunks](#critical-and-ancillary-chunks)
+        1. [Cli](#cli)
+        1. [WASM](#wasm)
+        1. [Testing](#testing)
+1. [How it works](#how-it-works)
+1. [What is PNG?](#what-is-png?)
+1. [Chunks](#chunks)
+    1. [Critical and ancillary chunks](#critical-and-ancillary-chunks)
     1. [PLTE chunk](#plte-chunk)
     1. [IHDR chunk](#ihdr-chunk)
     1. [IDAT chunk](#idat-chunk)
@@ -24,8 +28,11 @@ _Disclaimer: BTW this is my first project using Rust, so the code must be very a
             1. [zlib stream & buffer](#zlib-stream-&-buffer)
             1. [Unfilter](#unfilter)
             1. [De-interlace](#de-interlace)
+            1. [Bitmapping the unfiltered data](#bitmapping-the-unfiltered-data)
+            1. [Multi-sample pixels with 8 and 16-bit samples](#multi-sample-pixels-with-8-and-16-bit-samples)
     1. [IEND chunk](#iend-chunk)
-1. [CRC (cyclic redundancy checks)](#crc-(cyclic-redundancy-checks))
+    1. [CRC (cyclic redundancy checks)](#crc-(cyclic-redundancy-checks))
+    1. [Error handling](#error-handling)
 1. [References I used](#references-i-used)
 
 ## Benchmarks
@@ -134,10 +141,26 @@ So, in summary, `png-rs` can be used in/for:
 ```
 # test decoding an image. while you could also test it using wasm, using the cli package will be the easiest way to do it
 cargo run -p cli -- --input test/png/samples/3.png
+
+# or just run test over all images (takes about a sec)
+cargo test
 ```
 
 ### WASM
-See [its own README.md](./wasm-node/README.md).
+
+Build the wasm binary manually:
+```bash
+chmod u+x build-nodejs.sh
+
+./build-nodejs.sh
+
+node index.js
+```
+
+Build the binary and run the test:
+```bash
+npm test
+```
 
 ### Testing
 `png-rs` uses the official png testsuite, [PngSuite](https://www.schaik.com/pngsuite/#), along with select pngs provided by myself. Snapshot testing is WIP and contributions are welcome.
