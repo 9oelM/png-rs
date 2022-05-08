@@ -11,14 +11,10 @@ const readdir = util.promisify(fs.readdir);
 
 const pngFilesDir = path.resolve(__dirname, '..', '..', 'test', 'png', 'official');
 
-function runTestByPngCategories() {
-
-}
-
 (async  () => {
   const pngFileNames = (await readdir(pngFilesDir))
   .filter((filename) => filename.endsWith(`.png`) && !filename.startsWith(`x`))
-  .filter((filename) => filename.startsWith('b'))
+  .filter((filename) => !filename.startsWith('b'))
   
   const pngFileAndPaths = await Promise.all(pngFileNames.map((pngFileName) => new Promise<{ pngFile: Buffer, pngFileName: string  }>(async (resolve, reject) => {
     try {
@@ -31,18 +27,27 @@ function runTestByPngCategories() {
     }
   })));
   
+  /**
+   * https://github.com/photopea/UPNG.js/blob/master/UPNG.js#L202
+   * UPNG.js does not validate CRC, so exclude CRC checks for fair comparison
+   */
   const suite = new Benchmark.Suite;
   pngFileAndPaths.forEach(({
     pngFile, pngFileName,
   }) => {
-    suite.add(`${pngFileName} with wasm`, () => {
-      PngDecoderWasm.decodePng(pngFile, PngDecoderWasm.createPngDecoderOptions(false, true));
+    suite.add(`${pngFileName} with png-rs`, () => {
+      PngDecoderWasm.decodePng(pngFile, PngDecoderWasm.createPngDecoderOptions(false, false));
     })
     .add(`${pngFileName} with pngjs`, () => {
-      PNG.sync.read(pngFile);
+      PNG.sync.read(pngFile, { checkCRC: false });
     })
     .add(`${pngFileName} with upng`, () => {
-      upng.decode(pngFile)
+      const decoded = upng.decode(pngFile)
+      /**
+       * wasm and PNG.sync.read output rgba 8 data, so this line is needed 
+       * for a fair comparison
+       */
+      upng.toRGBA8(decoded)
     })
   })
   suite
