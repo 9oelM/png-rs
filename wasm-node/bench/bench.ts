@@ -4,8 +4,8 @@ import path from 'path';
 import util from 'util';
 import fs from 'fs'
 import pngjs from 'pngjs';
+import upng from 'upng-js';
 const { PNG } = pngjs;
-
 const readFile = util.promisify(fs.readFile);
 const readdir = util.promisify(fs.readdir);
 
@@ -40,6 +40,9 @@ function runTestByPngCategories() {
     })
     .add(`${pngFileName} with pngjs`, () => {
       PNG.sync.read(pngFile);
+    })
+    .add(`${pngFileName} with upng`, () => {
+      upng.decode(pngFile)
     })
   })
   suite

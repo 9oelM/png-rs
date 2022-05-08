@@ -839,6 +839,8 @@ After finding the dimensions, bpl (bytes per line), and bpp (bytes per pixel) of
 #### Bitmapping the unfiltered data
 For this project, we will fix the output as Uint8Array containing RGBA pixels, each 4 bits long, representing red, green, blue, and alpha. This happens at the last stage of the decoding.
 
+
+
 #### Multi-sample pixels with 8 and 16-bit samples
 
 [According to the spec](https://www.w3.org/TR/2003/REC-PNG-20031110/#7Scanline):
@@ -882,12 +884,6 @@ This way, the program will report if there is a mistmatch between the stored CRC
 - We can divide errors into two categories: recoverable and unrecoverable ones.
 - If the program encounters a recoverable error, it would store information about it and continue. If the program succeeeds, the output will contain decoded png vec and errors encountered.
 - If the program encounters an unrecoverable error, it would return error only.
-
-Above logic would make the return type of the `run` function clear:
-
-```rs
-
-```
 
 # References I used
 - ['The PNG book' on libpng](http://www.libpng.org/pub/png/book/)
