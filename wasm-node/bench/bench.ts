@@ -9,7 +9,7 @@ const { PNG } = pngjs;
 const readFile = util.promisify(fs.readFile);
 const readdir = util.promisify(fs.readdir);
 
-const pngFilesDir = path.resolve(__dirname, '..', '..', 'test', 'png', 'official');
+const pngFilesDir = path.resolve(__dirname, '..', '..', 'test', 'png', 'large');
 
 (async  () => {
   const pngFileNames = (await readdir(pngFilesDir))

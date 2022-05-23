@@ -7,7 +7,7 @@
     "wasm-opt": "wasm-opt",
     "ts-node": "node --loader ts-node/esm ./index.ts",
     "test": "./build-nodejs.sh && jest --silent=false 2>&1 | tee test.log",
-    "bench": "ts-node ./bench/bench.ts"
+    "bench": "./build-nodejs.sh && ts-node ./bench/bench.ts"
   },
   "keywords": [],
   "author": "",

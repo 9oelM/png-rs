@@ -90,6 +90,8 @@ pub struct PngDecoder<'a> {
     zlib_decompress_stream: zlib::ZlibDecompressStream,
     // final unfiltered output
     unfiltered_output: Vec<u8>,
+
+    chunks: Vec<u8>,
     /// cli params
     decoder_options: &'a PngDecoderOptions,
     /// the decoder manages errors throughout the program
@@ -128,6 +130,7 @@ impl<'a> PngDecoder<'a> {
             byte_reader,
             zlib_decompress_stream: zlib::ZlibDecompressStream::new(None),
             unfiltered_output: vec![],
+            chunks: vec![],
             decoder_options,
             multi_errors_manager: errors::MultiErrorsManager::new(
                 decoder_options.fail_fast.clone(),
@@ -365,7 +368,7 @@ impl<'a> PngDecoder<'a> {
             self.additional_flag_after_compression_method = Some(chunk[1]);
         }
 
-        self.zlib_decompress_stream.decompress(&chunk)?;
+        self.chunks.extend_from_slice(&chunk);
         if !self.has_idat {
             self.has_idat = true
         }
@@ -619,6 +622,7 @@ impl<'a> PngDecoder<'a> {
     /// returns RGBA vec
     pub fn run(&mut self) -> Result<Vec<u8>, errors::PngDecodeErrorCode> {
         self.decode_chunks()?;
+        self.zlib_decompress_stream.decompress_once(&self.chunks)?;
 
         // length is 1 or 7 based on interlace == 0 or 1
         let reduced_images = match self.interlace_method.expect("Interlace method is None") {

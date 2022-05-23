@@ -1,9 +1,10 @@
 use std::vec::Vec;
 
 use miniz_oxide::inflate::{
+    decompress_to_vec_zlib,
     core::{
         decompress,
-        inflate_flags::{self, TINFL_FLAG_PARSE_ZLIB_HEADER},
+        inflate_flags::{self},
         DecompressorOxide,
     },
     TINFLStatus,
@@ -22,7 +23,7 @@ pub struct ZlibDecompressStream {
     decompressor_state: Box<DecompressorOxide>,
 }
 
-const DEFAULT_ZLIB_STREAM_BUFFER_SIZE: usize = 32 * 1024;
+const DEFAULT_ZLIB_STREAM_BUFFER_SIZE: usize = 1 * 1024;
 
 const BASE_FLAGS: u32 = inflate_flags::TINFL_FLAG_PARSE_ZLIB_HEADER
     | inflate_flags::TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF
@@ -77,5 +78,18 @@ impl ZlibDecompressStream {
         }
 
         Ok(())
+    }
+
+    pub fn decompress_once(&mut self, raw_image_bytes: &Vec<u8>) -> Result<(), PngDecodeErrorCode> {
+        let result = decompress_to_vec_zlib(raw_image_bytes);
+
+        match result {
+            Err(err) => return Err(PngDecodeErrorCode::_14(err)),
+            Ok(buf) => {
+                self.out_buffer = buf;
+
+                return Ok(());
+            }
+        }
     }
 }
