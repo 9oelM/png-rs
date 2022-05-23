@@ -105,8 +105,7 @@ Each palette a three-byte series of the form:
    Green: 1 byte (0 = black, 255 = green)
    Blue:  1 byte (0 = black, 255 = blue)
 
-There is a number of rules for this chunk. [Please refer to the errors related to them](#wip).
-As we have explained above, the number of colors that an image can represent is limited. For example, if the image is full of reddish colors, why not store more of information about colors closer to red, instead of evenly storing information across colors. That's the basic idea behind a color palette.
+It is a lookup table where only selected colors exist to reduce data usage in all contexts. The bit depth of 8 bits is the most prevalent in RGB color model, which assigns 8 bits per R, G, and B, totalling 24 bits. The aim of the palette, therefore, is to only store colors relevant to an image. Imagine if your image only contains a few colors close to red and white. Then, instead of storing and finding your color from the palette of all possible combinations, you will do it with your own reduced palette, which is more efficient.
 
 ## IHDR chunk
  
