@@ -105,7 +105,8 @@ Each palette a three-byte series of the form:
    Green: 1 byte (0 = black, 255 = green)
    Blue:  1 byte (0 = black, 255 = blue)
 
-There is a number of rules for this chunk. [Please refer to the errors related to them](#wip).
+There is a number of rules for this chunk. Please refer to the errors  related to them in errors.rs.
+
 As we have explained above, the number of colors that an image can represent is limited. For example, if the image is full of reddish colors, why not store more of information about colors closer to red, instead of evenly storing information across colors. That's the basic idea behind a color palette.
 
 ## IHDR chunk
@@ -126,7 +127,7 @@ Here is some elaboration on above values:
 - **Compression method** has always been 0 for more than 20 years since the advent of PNG. 0 specifies the compression method as deflate/inflate compression.
 - We are going to discuss **filter method** and **interlace method** in a greater detail later.
 
-Again, there is a set of rules for this chunk. [Please refer to the errors related](#wip).
+Again, there is a set of rules for this chunk. Please refer to the relevant errors.
 
 ## IDAT chunk
 This contains the actual image data. Probably this usually be the chunk that is the most common among different types of chunks.

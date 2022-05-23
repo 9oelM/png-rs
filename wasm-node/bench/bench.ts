@@ -9,12 +9,11 @@ const { PNG } = pngjs;
 const readFile = util.promisify(fs.readFile);
 const readdir = util.promisify(fs.readdir);
 
-const pngFilesDir = path.resolve(__dirname, '..', '..', 'test', 'png', 'large');
+const pngFilesDir = path.resolve(__dirname, '..', '..', 'test', 'png', 'official');
 
 (async  () => {
   const pngFileNames = (await readdir(pngFilesDir))
   .filter((filename) => filename.endsWith(`.png`) && !filename.startsWith(`x`))
-  .filter((filename) => !filename.startsWith('b'))
   
   const pngFileAndPaths = await Promise.all(pngFileNames.map((pngFileName) => new Promise<{ pngFile: Buffer, pngFileName: string  }>(async (resolve, reject) => {
     try {
